@@ -18,6 +18,18 @@ def get_llm_model_client() -> OpenAIChatCompletionClient:
     # In AutoGen 0.4, we instantiate a Client object instead of a config dictionary.
     # The 'google-genai' SDK maps Gemini 2.5 flash endpoints identically to standard completions.
     return OpenAIChatCompletionClient(
-        model="gemini-2.5-flash", 
+        model="gemini-2.5-flash",
         api_key=api_key,
+        # Without base_url, AutoGen defaults to OpenAI's servers and rejects the Gemini key.
+        base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        # AutoGen requires explicit model_info for any non-OpenAI model name.
+        # Without this, it raises: "model_info is required when model name is not a valid OpenAI model"
+        model_info={
+            "vision": True,
+            "function_calling": True,
+            "json_output": True,
+            "family": "unknown",
+            "structured_output": True,
+        }
     )
+

@@ -7,10 +7,16 @@ from dotenv import load_dotenv
 # ── Debate Topic ───────────────────────────────────────────────────────────────
 # Edit this freely. The debate will NOT auto-start when you save this file.
 # You must run the script and confirm at the prompt below.
+# SAMPLE_REQUIREMENT = (
+#     "We need to migrate our monolith legacy banking application (which processes 10,000 Transactions Per Second) "
+#     "to a microservices architecture on AWS. Create a 3-phase strategic high-level plan for how "
+#     "we transition the database and handle user traffic without zero downtime."
+# )
+
 SAMPLE_REQUIREMENT = (
-    "We need to migrate our monolith legacy banking application (which processes 10,000 Transactions Per Second) "
-    "to a microservices architecture on AWS. Create a 3-phase strategic high-level plan for how "
-    "we transition the database and handle user traffic without zero downtime."
+    "Our app receives millions of records on JMS Queue. Millions of JMS messages are arriving to one of the queue. Each message have 80% part which is basic parsing, but 20% is some Rest API call. so 20% part blocks remaining 80% part!"
+    "How to process messages in parallel ( or in batches) for best performance? Assume, all messages are isolated, but many can belong to same ClientID and there may be duplicates!"
+    "Create a robust  architecture plan of how to architect this in Springboot application deployed on On-premesis PCF/Red Hat Openshift)"
 )
 
 async def main():
