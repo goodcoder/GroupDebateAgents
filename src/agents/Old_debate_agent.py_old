@@ -1,0 +1,206 @@
+import os
+from typing import Dict, Any, List
+from dotenv import load_dotenv
+
+# Import the core AutoGen classes needed for conversational agents and group chats
+import autogen
+from autogen import AssistantAgent, UserProxyAgent, GroupChat, GroupChatManager
+
+# Load environment variables (e.g., GEMINI_API_KEY) from a .env file if present
+load_dotenv()
+
+# ==========================================
+# 1. Configuration Setup
+# ==========================================
+def get_llm_config() -> Dict[str, Any]:
+    """
+    Creates and returns the LLM configuration dictionary required by AutoGen agents.
+    We are configuring it to use the Gemini model via the Google API.
+    """
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY environment variable is not set. Please set it to run the agents.")
+
+    return {
+        "config_list": [
+            {
+                "model": "gemini-2.5-flash", 
+                "api_key": api_key,
+                "api_type": "google"
+            }
+        ],
+        # Temperature controls randomness. We keep it relatively low (e.g., 0.2) 
+        # so the reasoning remains logical rather than overly creative/hallucinatory.
+        "temperature": 0.2, 
+    }
+
+# ==========================================
+# 2. Agent Classes
+# ==========================================
+
+class ConsultantAgent:
+    """
+    The Consultant serves as the 'Planner'. 
+    They receive the initial requirement from the user, draft a comprehensive plan,
+    and are responsible for revising that plan based on the Architect's feedback.
+    """
+    def __init__(self, llm_config: Dict[str, Any]):
+        # System Message: This is the core prompt that dictates the agent's behavior and personality.
+        system_message = (
+            "You are the Lead Technical Consultant. "
+            "Your role is to receive requirements from the user and draft a comprehensive, strategic plan. "
+            "When the Adversarial Architect reviews your plan and raises concerns, you MUST: "
+            "1. Acknowledge valid points. "
+            "2. Conduct necessary research or logical adjustments. "
+            "3. Present a revised, strengthened version of the plan addressing the Architect's specific edge cases. "
+            "Do not be stubborn; your goal is the highest quality final output."
+        )
+        
+        # Instantiate the AutoGen AssistantAgent for the Consultant
+        self.agent = AssistantAgent(
+            name="Consultant",
+            system_message=system_message,
+            llm_config=llm_config,
+            # We don't want the Consultant executing code on the host machine for this scenario
+            code_execution_config=False, 
+        )
+
+class AdversarialArchitectAgent:
+    """
+    The Adversarial Architect serves as the 'Critic' or 'Red Team'.
+    Their sole purpose is to find flaws in the Consultant's plan. They do not 
+    write the plan themselves; they break it.
+    """
+    def __init__(self, llm_config: Dict[str, Any]):
+        system_message = (
+            "You are the Adversarial System Architect. "
+            "Your ONLY goal is to brutally review the Consultant's plan. "
+            "You must find critical flaws, dangerous assumptions, security risks, scalability bottlenecks, and edge cases. "
+            "DO NOT write the code or construct the plan yourself. DO NOT be overly polite. "
+            "Ask aggressive 'What if [X happens]... Then what?' questions. "
+            "Force the Consultant to defend their choices or revise the plan. "
+            "If the Consultant has successfully mitigated ALL your severe concerns in their revised plan, "
+            "you must explicitly state 'I APPROVE THIS PLAN'."
+        )
+        
+        self.agent = AssistantAgent(
+            name="Adversarial_Architect",
+            system_message=system_message,
+            llm_config=llm_config,
+            code_execution_config=False,
+        )
+
+class UserOrchestratorProxy:
+    """
+    The User Proxy acts as the entry point for the human.
+    It initiates the chat with the requirements and monitors the debate.
+    We configure it to rarely ask for human input once the debate starts, 
+    letting the Consultant and Architect loop autonomously until termination.
+    """
+    def __init__(self):
+        self.agent = UserProxyAgent(
+            name="User_Orchestrator",
+            # "NEVER" means the prompt won't pause to ask the human for input every turn.
+            # It relies entirely on the termination logic to end the loop.
+            human_input_mode="NEVER",
+            
+            # This is the termination mechanism. The chat loop stops if any message contains "I APPROVE THIS PLAN"
+            # (which the Architect is instructed to say when satisfied) or "TERMINATE".
+            is_termination_msg=lambda msg: "I APPROVE THIS PLAN" in msg.get("content", "").upper() or "TERMINATE" in msg.get("content", "").upper(),
+            
+            code_execution_config=False,
+        )
+
+
+# ==========================================
+# 3. The Orchestrator / Controller
+# ==========================================
+class DebateOrchestrator:
+    """
+    This class ties the agents together into a specific conversational pattern
+    using AutoGen's GroupChat feature.
+    """
+    def __init__(self, requirement_topic: str, max_rounds: int = 6):
+        self.topic = requirement_topic
+        self.max_rounds = max_rounds
+        self.llm_config = get_llm_config()
+        
+        # Instantiate our custom agent wrapper classes
+        self.consultant_wrapper = ConsultantAgent(self.llm_config)
+        self.architect_wrapper = AdversarialArchitectAgent(self.llm_config)
+        self.user_proxy_wrapper = UserOrchestratorProxy()
+        
+        # Extract the underlying AutoGen agents
+        self.consultant = self.consultant_wrapper.agent
+        self.architect = self.architect_wrapper.agent
+        self.user_proxy = self.user_proxy_wrapper.agent
+
+    def start_debate(self):
+        """
+        Configures the GroupChat and initiates the conversation loop.
+        """
+        print(f"\n{'='*60}")
+        print(f"STARTING DEBATE Orchestration")
+        print(f"Topic: {self.topic}")
+        print(f"Max Rounds Allowed: {self.max_rounds}")
+        print(f"{'='*60}\n")
+
+        # 1. Create the GroupChat
+        # We put all three agents into a single simulated "room".
+        groupchat = GroupChat(
+            agents=[self.user_proxy, self.consultant, self.architect],
+            messages=[],
+            max_round=self.max_rounds,
+            
+            # The 'round_robin' ensures a strict order. 
+            # E.g., User -> Consultant -> Architect -> Consultant -> Architect etc.
+            # This prevents the Architect from talking to itself or the User interrupting.
+            speaker_selection_method="round_robin", 
+            
+            # Ensure the system actually looks for our termination messages
+            allow_repeat_speaker=False
+        )
+
+        # 2. Assign the Manager
+        # The GroupChatManager uses an LLM (or strict rules like round_robin) to decide 
+        # who speaks next and broadcasts the messages to the participant's context windows.
+        manager = GroupChatManager(
+            groupchat=groupchat, 
+            llm_config=self.llm_config
+        )
+
+        # 3. Initiate the Chat
+        # The User Proxy sends the initial requirement to the Manager, kicking off the loop.
+        self.user_proxy.initiate_chat(
+            manager,
+            message=(
+                f"REQUIREMENT TO CONSULTANT:\n{self.topic}\n\n"
+                "Consultant, please draft the initial plan. "
+                "Adversarial_Architect, review the plan completely once submitted."
+            )
+        )
+        
+        print("\n=== DEBATE CONCLUDED ===")
+
+
+# ==========================================
+# 4. Entry Point
+# ==========================================
+if __name__ == "__main__":
+    # Example Topic: Something complex enough that requires scrutiny
+    sample_requirement = (
+        "We need to migrate our monolith legacy banking application (which processes 10,000 TPS) "
+        "to a microservices architecture on AWS. Create a 3-phase strategic high-level plan for how "
+        "we transition the database and handle user traffic without zero downtime."
+    )
+    
+    # Initialize the orchestrator.
+    # We set max_rounds to 6. This means 6 turns total (e.g., User -> Consultant -> Architect -> Consult -> Arch -> Consult).
+    # If the Architect is satisfied before round 6, their "I APPROVE THIS PLAN" message will terminate it early.
+    orchestrator = DebateOrchestrator(
+        requirement_topic=sample_requirement,
+        max_rounds=6
+    )
+    
+    # Run the loop
+    orchestrator.start_debate()
