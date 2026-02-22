@@ -1,4 +1,5 @@
 from src.orchestrator import DebateOrchestrator
+from src.config import ResponseLevel
 import os
 import sys
 import asyncio
@@ -15,8 +16,8 @@ from dotenv import load_dotenv
 
 SAMPLE_REQUIREMENT = (
     "Our app receives millions of records on JMS Queue. Millions of JMS messages are arriving to one of the queue. Each message have 80% part which is basic parsing, but 20% is some Rest API call. so 20% part blocks remaining 80% part!"
-    "How to process messages in parallel ( or in batches) for best performance? Assume, all messages are isolated, but many can belong to same ClientID and there may be duplicates!"
-    "Create a robust  architecture plan of how to architect this in Springboot application deployed on On-premesis PCF/Red Hat Openshift)"
+    "How to process messages in parallel ( one-by-one or in batches!) for best performance? Assume, all messages are isolated, but many can belong to same ClientID and there may be duplicates!"
+    "Create a robust architecture plan of how to architect this in a Springboot application deployed on On-premesis (PCF/Red Hat Openshift)."
 )
 
 async def main():
@@ -34,19 +35,46 @@ async def main():
     print("\n" + "=" * 62)
     print("  GROUP DEBATE AGENTS  —  AutoGen 0.4")
     print("=" * 62)
-    print(f"\n  Topic:\n  {SAMPLE_REQUIREMENT[:120]}...")
-    print(f"\n  Max Rounds : 6")
-    print("\n  Press ENTER to begin the debate, or Ctrl+C to abort.\n")
+    print(f"\n  Topic:\n  {SAMPLE_REQUIREMENT[:120]}...\n")
+
+    # ── Solutions & Rounds Selection ───────────────────────────────────────────
     try:
-        input("  → ")
+        ns_input = input("  How many initial solutions should the Consultant propose? (1-3) [Default: 1]: ").strip()
+        num_solutions = int(ns_input) if ns_input.isdigit() else 1
+        num_solutions = max(1, min(3, num_solutions))  # Clamp between 1-3
+    except KeyboardInterrupt:
+        print("\n\nAborted by user.")
+        sys.exit(0)
+
+    max_rounds = 8 if num_solutions > 1 else 6
+    print(f"  → Generating {num_solutions} solution(s) in Round 1.")
+    print(f"  → Max Rounds set to: {max_rounds}")
+
+    # ── Response Level Selection ───────────────────────────────────────────────
+    level_map = {
+        "1": ResponseLevel.SIMPLE,
+        "2": ResponseLevel.INTERMEDIATE,
+        "3": ResponseLevel.ADVANCED,
+        "4": ResponseLevel.EXPERT,
+    }
+    print("\n  Response Level:")
+    print("    1) Simple       — headings + one paragraph only  [default]")
+    print("    2) Intermediate — headings + up to 4 bullets")
+    print("    3) Advanced     — thorough with trade-offs")
+    print("    4) Expert       — exhaustive, deeply technical")
+    try:
+        choice = input("\n  Enter choice (1-4) or press ENTER for Simple: ").strip()
     except KeyboardInterrupt:
         print("\n\nAborted by user. No API calls were made.")
         sys.exit(0)
-
+    response_level = level_map.get(choice, ResponseLevel.SIMPLE)
+    print(f"  → Using response level: {response_level.value.upper()}\n")
     # Initialize the orchestrator
     orchestrator = DebateOrchestrator(
         requirement_topic=SAMPLE_REQUIREMENT,
-        max_rounds=6
+        max_rounds=max_rounds,
+        response_level=response_level,
+        num_solutions=num_solutions
     )
 
     # Run the conversational loop (Async)
