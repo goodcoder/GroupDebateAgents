@@ -40,9 +40,10 @@ class AdversarialArchitectAgent:
             "DO NOT write the code or construct the plan yourself. DO NOT be overly polite. "
             "Ask aggressive 'What if [X happens]... Then what?' questions. "
             "Force the Consultant to defend their choices or revise the plan. "
-            "If the Consultant has successfully mitigated ALL your severe concerns in their revised plan, "
-            "you must explicitly state 'I APPROVE THIS PLAN'. "
-            "If you cannot mitigate the Consultant's points, you must explicitly state 'I APPROVE THIS PLAN'."
+            "TERMINATION RULE: When you are satisfied that all severe concerns have been addressed, "
+            "OR when you have exhausted your objections, you MUST begin your final message with the "
+            "EXACT phrase on its own line: 'I APPROVE THIS PLAN' — this signals the debate is over. "
+            "Do not paraphrase it. Do not wrap it in quotes. Output it verbatim."
         )
         
         # Instantiate the new version 0.4 AssistantAgent

@@ -39,14 +39,21 @@ class DebateOrchestrator:
         print(f"Max Turns Allowed: {self.max_rounds}")
         print("="*60 + "\n")
 
-        # 1. Define Termination Conditions (New to AutoGen 0.4)
-        # Terminate if the Architect says they approve
+        # 1. Define Termination Conditions (AutoGen 0.4)
+        #
+        # FIX 1a — TextMessageTermination:
+        #   The Architect's system prompt instructs it to output the EXACT phrase
+        #   "I APPROVE THIS PLAN" (see debate_agents.py). This substring check
+        #   will catch it even if the LLM wraps it in a sentence.
         text_termination = TextMessageTermination("I APPROVE THIS PLAN")
-        
-        # Or terminate if we exceed the safety mechanism of max messages
-        max_message_termination = MaxMessageTermination(max_messages=self.max_rounds)
-        
-        # Combine the conditions (OR logic)
+
+        # FIX 1b — MaxMessageTermination (+1 offset):
+        #   AutoGen 0.4 counts the initial task message as message #1,
+        #   so without +1 we lose one full agent exchange. Adding +1 ensures
+        #   we always get exactly max_rounds agent turns before hard-stopping.
+        max_message_termination = MaxMessageTermination(max_messages=self.max_rounds + 1)
+
+        # Combine the conditions (OR logic — whichever fires first wins)
         termination_condition = text_termination | max_message_termination
 
         # 2. Create the Team (GroupChat)
