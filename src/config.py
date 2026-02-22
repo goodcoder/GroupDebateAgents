@@ -33,8 +33,8 @@ MARKDOWN_FORMAT_INSTRUCTION = (
 )
 
 # These strings are appended to each agent's system prompt at runtime.
-RESPONSE_LEVEL_PROMPTS: dict[ResponseLevel, str] = {
-    ResponseLevel.SIMPLE: (
+RESPONSE_LEVEL_PROMPTS: dict[str, str] = {
+    "simple": (
         "RESPONSE STYLE — SIMPLE: "
         "Output ONLY main ## headings for each major topic section. "
         "Under EACH heading, write ONE short intro sentence then 3-5 concise bullet points. "
@@ -48,7 +48,7 @@ RESPONSE_LEVEL_PROMPTS: dict[ResponseLevel, str] = {
         "- <mark>**What ...**</mark> [your scenario/question]. "
         "Keep the overall response tight and scannable."
     ),
-    ResponseLevel.INTERMEDIATE: (
+    "intermediate": (
         "RESPONSE STYLE — INTERMEDIATE: "
         "Use ## headings for each major section. "
         "Under each heading, use a short intro sentence then up to 4 bullet points max. "
@@ -57,7 +57,7 @@ RESPONSE_LEVEL_PROMPTS: dict[ResponseLevel, str] = {
         "Architect: max 3 critique sections with up to 3 bullets each. "
         "No lengthy prose paragraphs."
     ),
-    ResponseLevel.ADVANCED: (
+    "advanced": (
         "RESPONSE STYLE — ADVANCED: "
         "Use ## and ### headings to organise your response clearly. "
         "Consultant: up to 7 sections, each with bullet points, brief rationale, and trade-offs. "
@@ -65,7 +65,7 @@ RESPONSE_LEVEL_PROMPTS: dict[ResponseLevel, str] = {
         "Architect: up to 5 critique areas, each with impact analysis and follow-up questions. "
         "Short prose paragraphs are acceptable alongside lists."
     ),
-    ResponseLevel.EXPERT: (
+    "expert": (
         "RESPONSE STYLE — EXPERT: "
         "Provide exhaustive, deeply technical responses with full depth. "
         "Consultant: cover all phases, alternatives, risk mitigations, edge cases, and technical specifics. "

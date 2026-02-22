@@ -10,7 +10,7 @@ class ConsultantAgent:
     and are responsible for revising that plan based on the Architect's adversarial feedback.
     """
     def __init__(self, model_client, response_level: ResponseLevel = ResponseLevel.ADVANCED):
-        level_instruction = RESPONSE_LEVEL_PROMPTS[response_level]
+        level_instruction = RESPONSE_LEVEL_PROMPTS[response_level.value]
 
         # System Message: This dictates the agent's behavior and personality.
         system_message = (
@@ -40,7 +40,7 @@ class ArchitectAgent:
     write the plan themselves; they break it.
     """
     def __init__(self, model_client, response_level: ResponseLevel = ResponseLevel.ADVANCED):
-        level_instruction = RESPONSE_LEVEL_PROMPTS[response_level]
+        level_instruction = RESPONSE_LEVEL_PROMPTS[response_level.value]
 
         system_message = (
             "You are the Adversarial System Architect. "
